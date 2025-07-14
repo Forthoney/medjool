@@ -1,0 +1,6 @@
+local
+	src.mlb
+	$(SML_LIB)/basis/basis.mlb
+in
+	Main.sml
+end
