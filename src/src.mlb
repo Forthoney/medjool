@@ -3,6 +3,5 @@ local
 in
 	Argument.sml
 	Flag.sml
-	Tokenize.sml
 	Command.sml
 end

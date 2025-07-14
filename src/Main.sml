@@ -6,6 +6,7 @@ structure Command =
      val flags =
        [{ name = "poop"
         , desc = "poopy"
-        , arg = Argument.One {action=fn arg => print ("foobar" ^ arg), metavar="THING"}
+        , arg = Argument.One
+            {action = fn arg => print ("foobar" ^ arg), metavar = "THING"}
         }])
-val _ = Command.parse (CommandLine.arguments ())
+val _ = Command.run (CommandLine.arguments ())

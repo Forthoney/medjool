@@ -1,7 +1,5 @@
 structure Argument =
 struct
-  exception Help
-
   datatype 'a t =
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
@@ -11,4 +9,6 @@ struct
     fn None _ => ""
      | One {metavar, ...} => metavar
      | Optional {metavar, ...} => "[" ^ metavar ^ "]"
+
+  exception Help
 end
