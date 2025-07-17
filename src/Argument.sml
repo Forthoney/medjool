@@ -9,6 +9,4 @@ struct
     fn None _ => ""
      | One {metavar, ...} => metavar
      | Optional {metavar, ...} => "[" ^ metavar ^ "]"
-
-  exception Help
 end

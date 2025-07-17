@@ -11,66 +11,24 @@ functor CommandFn
   COMMAND =
 struct
   type ret = a
+  exception Help
 
-  datatype token = Flag of string | Arg of string
-  structure Token =
-  struct
-    val fromStrings =
-      let
-        fun loop acc =
-          fn [] => rev acc
-           | ("--" :: xs) => List.revAppend (acc, map Arg xs)
-           | (x :: xs) =>
-            if Flag.isFlag x then loop (Flag x :: acc) xs
-            else loop (Arg x :: acc) xs
-      in
-        loop [] o List.concat o map Flag.preprocess
-      end
-
-    fun toString (Arg v) = v
-      | toString (Flag v) = v
-  end
-
-  fun search flag =
-    let
-      open Argument
-      fun loop acc =
-        fn [] => (NONE, rev acc)
-         | (Arg x :: xs) => loop (Arg x :: acc) xs
-         | (Flag x :: xs) =>
-          if Flag.isMatch (flag, x) then
-            case Flag.getArg flag of
-              None action => (SOME action, List.revAppend (acc, xs))
-            | One {action, ...} =>
-                (case xs of
-                   Arg a :: xs =>
-                     (SOME (fn () => action a), List.revAppend (acc, xs))
-                 | _ => raise Fail "arity")
-            | Optional {action, ...} =>
-                (case xs of
-                   Arg a :: xs =>
-                     (SOME (fn () => action (SOME a)), List.revAppend (acc, xs))
-                 | _ => (SOME (fn () => action NONE), List.revAppend (acc, xs)))
-          else
-            loop (Flag x :: acc) xs
-    in
-      loop []
-    end
+  val help = {usage = Flag.helpUsage, arg = Argument.None (fn () => raise Help)}
 
   val helpMsg = String.concatWith "\n"
-    (desc :: map (fn fl => "  " ^ Flag.toHelpMsg fl) (flags @ [Flag.help]))
+    (desc :: map (fn fl => "  " ^ Flag.toHelpMsg fl) (flags @ [help]))
 
   fun parsePartial args =
     let
-      val args = Token.fromStrings args
+      val args = Flag.Token.tokenize args
       fun loop acc =
         fn (_, []) => (rev acc, [])
          | ([], rest) => (rev acc, rest)
          | (flag :: rest, args) =>
-          case search flag args of
+          case Flag.search flag args of
             (SOME action, args) => loop (action :: acc) (flag :: rest, args)
           | (NONE, args) => loop acc (rest, args)
-      val (actions, remaining) = loop [] (Flag.help :: flags, args)
+      val (actions, remaining) = loop [] (help :: flags, args)
     in
       (List.map (fn action => action ()) actions, remaining)
     end
@@ -78,10 +36,9 @@ struct
   fun parse args =
     case parsePartial args of
       (actions, []) => actions
-    | (actions, arg :: _) => raise Fail ("unmatched " ^ Token.toString arg)
+    | (actions, arg :: _) => raise Fail ("unmatched " ^ Flag.Token.toString arg)
 
   fun run args =
     parse args
-    handle Argument.Help =>
-      (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
+    handle Help => (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
 end
