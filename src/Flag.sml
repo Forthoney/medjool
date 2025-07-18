@@ -18,9 +18,10 @@ struct
   fun toHelpMsg {usage = {name, desc}, arg} =
     let
       val metavar =
-        case Argument.toHelpMsg arg of
-          "" => ""
-        | other => " " ^ other
+        case arg of
+          Argument.None _ => ""
+        | Argument.One {metavar, ...} => " <" ^ metavar ^ ">"
+        | Argument.Optional {metavar, ...} => " [<" ^ "metavar" ^ ">]"
     in
       prefix ^ name ^ metavar ^ "\t" ^ desc
     end
@@ -35,14 +36,13 @@ struct
       fn [] => []
        | ("--" :: xs) => map Arg xs
        | (x :: xs) =>
-        if String.isPrefix prefix x then
-          Flag x :: tokenize xs
+        if String.isPrefix prefix x then Flag x :: tokenize xs
         else Arg x :: tokenize xs
 
     fun toString (Arg v) = v
       | toString (Flag v) = v
   end
-  
+
   fun search {usage = {name, desc}, arg} toks =
     let
       open Token
@@ -85,21 +85,21 @@ struct
 
     fun toHelpMsg {usage = {short, long, desc}, arg} =
       let
-        val short = Option.getOpt (Option.map shortToString short, "  ")
         val metavar =
-          case Argument.toHelpMsg arg of
-            "" => ""
-          | other => "=" ^ other
+          case (short, arg) of
+            (_, Argument.None _) => ""
+          | (SOME _, Argument.One {metavar, ...}) => " <" ^ metavar ^ ">"
+          | (NONE, Argument.One {metavar, ...}) => "=<" ^ metavar ^ ">"
+          | (SOME _, Argument.Optional {metavar, ...}) => " [<" ^ metavar ^ ">]"
+          | (NONE, Argument.Optional {metavar, ...}) => "[=<" ^ metavar ^ ">]"
+        val short = Option.getOpt (Option.map shortToString short, "  ")
       in
         short ^ ", " ^ "--" ^ long ^ metavar ^ "\t" ^ desc
       end
 
     val helpUsage = {short = SOME #"h", long = "help", desc = "Print help"}
 
-    datatype token =
-      Flag of string
-    | FlagArg of string * string
-    | Arg of string    
+    datatype token = Flag of string | FlagArg of string * string | Arg of string
 
     structure Token =
     struct
@@ -113,13 +113,12 @@ struct
             let
               val (flag, arg) = splitl (fn c => c <> #"=") (full x)
             in
-              if isEmpty arg then
-                Flag x :: tokenize xs
-              else
-                FlagArg (string flag, string (triml 1 arg)) :: tokenize xs
+              if isEmpty arg then Flag x :: tokenize xs
+              else FlagArg (string flag, string (triml 1 arg)) :: tokenize xs
             end
           else if String.isPrefix "-" x then
-            (map (Flag o shortToString) o explode o triml 1 o full) x @ tokenize xs
+            (map (Flag o shortToString) o explode o triml 1 o full) x
+            @ tokenize xs
           else
             Arg x :: tokenize xs
 
@@ -138,35 +137,38 @@ struct
             if "--" ^ long = other then
               case arg of
                 None action => raise Fail "arity"
-              | One {action, ...} => (SOME (fn () => action v), List.revAppend (acc, rest))
-              | Optional {action, ...} => (SOME (fn () => action (SOME v)), List.revAppend (acc, rest))
+              | One {action, ...} =>
+                  (SOME (fn () => action v), List.revAppend (acc, rest))
+              | Optional {action, ...} =>
+                  (SOME (fn () => action (SOME v)), List.revAppend (acc, rest))
             else
               loop (FlagArg (other, v) :: acc) rest
            | (Flag other :: rest) =>
-            if "--" ^ long = other then
-              case arg of
-                None action => (SOME action, List.revAppend (acc, rest))
-              | One {action, ...} => raise Fail "arity"
-              | Optional {action, ...} => (SOME (fn () => action NONE), List.revAppend (acc, rest))
-            else
-              case short of
-                NONE => loop (Flag other :: acc) rest
-              | SOME c =>
-                if shortToString c = other then
-                  case arg of
-                    None action => (SOME action, List.revAppend (acc, rest))
-                  | One {action, ...} =>
-                      (case rest of
-                         Arg v :: rest =>
-                           (SOME (fn () => action v), List.revAppend (acc, rest))
-                       | _ => raise Fail "arity")
-                  | Optional {action, ...} =>
-                      (case rest of
-                         Arg v :: rest =>
-                           (SOME (fn () => action (SOME v)), List.revAppend (acc, rest))
-                       | _ => (SOME (fn () => action NONE), List.revAppend (acc, rest)))
-                else
-                  loop (Flag other :: acc) rest
+            case
+              ( "--" ^ long = other
+              , Option.map (fn c => shortToString c = other) short
+              )
+            of
+              (false, SOME false) => loop (Flag other :: acc) rest
+            | (false, NONE) => loop (Flag other :: acc) rest
+            | _ =>
+                (case arg of
+                   None action => (SOME action, List.revAppend (acc, rest))
+                 | One {action, ...} =>
+                     (case rest of
+                        Arg v :: rest =>
+                          (SOME (fn () => action v), List.revAppend (acc, rest))
+                      | _ => raise Fail "arity")
+                 | Optional {action, ...} =>
+                     (case rest of
+                        Arg v :: rest =>
+                          ( SOME (fn () => action (SOME v))
+                          , List.revAppend (acc, rest)
+                          )
+                      | _ =>
+                          ( SOME (fn () => action NONE)
+                          , List.revAppend (acc, rest)
+                          )))
       in
         loop [] toks
       end

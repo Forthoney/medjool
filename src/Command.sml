@@ -39,6 +39,19 @@ struct
     | (actions, arg :: _) => raise Fail ("unmatched " ^ Flag.Token.toString arg)
 
   fun run args =
-    parse args
-    handle Help => (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
+    let
+      val eprint = print
+    in
+      parse args
+      handle
+        Help => (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
+      | Argument.Conversion {expected, actual} =>
+          ( TextIO.output
+              ( TextIO.stdErr
+              , "Expected argument of type " ^ expected
+                ^ ", but found argument \"" ^ String.toString actual ^ "\"\n"
+              )
+          ; OS.Process.exit OS.Process.failure
+          )
+    end
 end
