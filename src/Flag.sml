@@ -1,16 +1,21 @@
 signature FLAG =
 sig
+  (* information on using the flag. Should include information such as the flag's name and the help message *)
   type usage
   type 'a t = {usage: usage, arg: 'a Argument.t}
 
-  structure Token: TOKEN
+  (* Tokens produced when parsing according to this convention *)
+  type token
+  val tokenize: string list -> token list
+  val tokToString: token -> string
 
   val toHelpMsg: 'a t -> string
+  (* The usage metadata for the help flag *)
   val helpUsage: usage
-  val search: 'a t -> Token.t list -> ((unit -> 'a) option * Token.t list)
+  val search: 'a t -> token list -> ((unit -> 'a) option * token list)
 end
 
-functor PrefixedFn (val prefix: string): FLAG =
+functor PrefixedFn (val prefix: string) :> FLAG =
 struct
   type usage = {name: string, desc: string}
   type 'a t = {usage: usage, arg: 'a Argument.t}
@@ -29,23 +34,18 @@ struct
   val helpUsage = {name = "help", desc = "Print help"}
 
   datatype token = Flag of string | Arg of string
-  structure Token =
-  struct
-    type t = token
-    val rec tokenize =
-      fn [] => []
-       | ("--" :: xs) => map Arg xs
-       | (x :: xs) =>
-        if String.isPrefix prefix x then Flag x :: tokenize xs
-        else Arg x :: tokenize xs
+  val rec tokenize =
+    fn [] => []
+     | ("--" :: xs) => map Arg xs
+     | (x :: xs) =>
+      if String.isPrefix prefix x then Flag x :: tokenize xs
+      else Arg x :: tokenize xs
 
-    fun toString (Arg v) = v
-      | toString (Flag v) = v
-  end
+  fun tokToString (Arg v) = v
+    | tokToString (Flag v) = v
 
   fun search {usage = {name, desc}, arg} toks =
     let
-      open Token
       open Argument
       fun loop acc =
         fn [] => (NONE, toks)
@@ -101,31 +101,27 @@ struct
 
     datatype token = Flag of string | FlagArg of string * string | Arg of string
 
-    structure Token =
-    struct
-      type t = token
-      open Substring
-      val rec tokenize =
-        fn [] => []
-         | ("--" :: xs) => map Arg xs
-         | (x :: xs) =>
-          if String.isPrefix "--" x then
-            let
-              val (flag, arg) = splitl (fn c => c <> #"=") (full x)
-            in
-              if isEmpty arg then Flag x :: tokenize xs
-              else FlagArg (string flag, string (triml 1 arg)) :: tokenize xs
-            end
-          else if String.isPrefix "-" x then
-            (map (Flag o shortToString) o explode o triml 1 o full) x
-            @ tokenize xs
-          else
-            Arg x :: tokenize xs
+    open Substring
+    val rec tokenize =
+      fn [] => []
+       | ("--" :: xs) => map Arg xs
+       | (x :: xs) =>
+        if String.isPrefix "--" x then
+          let
+            val (flag, arg) = splitl (fn c => c <> #"=") (full x)
+          in
+            if isEmpty arg then Flag x :: tokenize xs
+            else FlagArg (string flag, string (triml 1 arg)) :: tokenize xs
+          end
+        else if String.isPrefix "-" x then
+          (map (Flag o shortToString) o explode o triml 1 o full) x
+          @ tokenize xs
+        else
+          Arg x :: tokenize xs
 
-      fun toString (Flag fl) = fl
-        | toString (FlagArg (fl, arg)) = fl ^ "=" ^ arg
-        | toString (Arg v) = v
-    end
+    fun tokToString (Flag fl) = fl
+      | tokToString (FlagArg (fl, arg)) = fl ^ "=" ^ arg
+      | tokToString (Arg v) = v
 
     fun search {usage = {short, long, desc}, arg} toks =
       let

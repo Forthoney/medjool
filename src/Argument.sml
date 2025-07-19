@@ -2,6 +2,7 @@ structure Argument:
 sig
   exception Arity
   exception Conversion of {expected: string, actual: string}
+  exception Validation of {condition: string, actual: string}
   datatype 'a t =
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
@@ -10,10 +11,14 @@ sig
   val asInt: string -> int
   val asReal: string -> real
   val asBool: string -> bool
+  val satisfies: string -> (string -> bool) -> string -> string
+  val includedIn: string list -> string -> string
 end =
 struct
   exception Arity
   exception Conversion of {expected: string, actual: string}
+  exception Validation of {condition: string, actual: string}
+
   datatype 'a t =
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
@@ -29,4 +34,13 @@ struct
   val asInt = asType "int" (Int.scan StringCvt.DEC)
   val asReal = asType "real (float)" Real.scan
   val asBool = asType "bool" Bool.scan
+
+  fun satisfies msg predicate s =
+    case Option.filter predicate s of
+      SOME v => v
+    | NONE => raise Validation {condition = msg, actual = s}
+
+  fun includedIn choices =
+    satisfies ("Must select value among " ^ String.concatWith ", " choices)
+      (fn s => List.exists (fn el => el = s) choices)
 end
