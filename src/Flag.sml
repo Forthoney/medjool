@@ -12,7 +12,7 @@ sig
   val toHelpMsg: 'a t -> string
   (* The usage metadata for the help flag *)
   val helpUsage: usage
-  val search: 'a t -> token list -> ((unit -> 'a) option * token list)
+  val search: 'a t -> token list -> (unit -> 'a) option * token list
 end
 
 functor PrefixedFn (val prefix: string) :> FLAG =
