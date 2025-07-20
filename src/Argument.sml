@@ -7,6 +7,8 @@ sig
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
   | Optional of {metavar: string, action: string option -> 'a}
+  | AtLeastOne of {metavar: string, action: string list -> 'a}
+  | Any of {metavar: string, action: string list -> 'a}
 
   val asInt: string -> int
   val asReal: string -> real
@@ -23,6 +25,8 @@ struct
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
   | Optional of {metavar: string, action: string option -> 'a}
+  | AtLeastOne of {metavar: string, action: string list -> 'a}
+  | Any of {metavar: string, action: string list -> 'a}
 
   fun asType tyName scanner s =
     case scanner Substring.getc (Substring.full s) of

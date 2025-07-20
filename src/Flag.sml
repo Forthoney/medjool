@@ -22,11 +22,14 @@ struct
 
   fun toHelpMsg {usage = {name, desc}, arg} =
     let
+      open Argument
       val metavar =
         case arg of
-          Argument.None _ => ""
-        | Argument.One {metavar, ...} => " <" ^ metavar ^ ">"
-        | Argument.Optional {metavar, ...} => " [<" ^ "metavar" ^ ">]"
+          None _ => ""
+        | One {metavar, ...} => " <" ^ metavar ^ ">"
+        | Optional {metavar, ...} => " [<" ^ metavar ^ ">]"
+        | AtLeastOne {metavar, ...} => " <" ^ metavar ^ ">..."
+        | Any {metavar, ...} => " [<" ^ metavar ^ ">]..."
     in
       prefix ^ name ^ metavar ^ "\t" ^ desc
     end
@@ -47,25 +50,47 @@ struct
   fun search {usage = {name, desc}, arg} toks =
     let
       open Argument
+      fun takeWhile acc (Arg a :: rest) =
+            takeWhile (a :: acc) rest
+        | takeWhile acc xs = (rev acc, xs)
+
       fun loop acc =
         fn [] => (NONE, toks)
-         | (Arg x :: xs) => loop (Arg x :: acc) xs
-         | (Flag other :: xs) =>
+         | (Arg a :: rest) => loop (Arg a :: acc) rest
+         | (Flag other :: rest) =>
           if prefix ^ name <> other then
-            loop (Flag other :: acc) xs
+            loop (Flag other :: acc) rest
           else
             case arg of
-              None action => (SOME action, List.revAppend (acc, xs))
+              None action => (SOME action, List.revAppend (acc, rest))
             | One {action, ...} =>
-                (case xs of
-                   Arg a :: xs =>
-                     (SOME (fn () => action a), List.revAppend (acc, xs))
+                (case rest of
+                   Arg a :: rest =>
+                     (SOME (fn () => action a), List.revAppend (acc, rest))
                  | _ => raise Fail "arity")
             | Optional {action, ...} =>
-                (case xs of
-                   Arg a :: xs =>
-                     (SOME (fn () => action (SOME a)), List.revAppend (acc, xs))
-                 | _ => (SOME (fn () => action NONE), List.revAppend (acc, xs)))
+                (case rest of
+                   Arg a :: rest =>
+                     ( SOME (fn () => action (SOME a))
+                     , List.revAppend (acc, rest)
+                     )
+                 | _ =>
+                     (SOME (fn () => action NONE), List.revAppend (acc, rest)))
+            | Any {action, ...} =>
+                let val (taken, rest) = takeWhile [] rest
+                in (SOME (fn () => action taken), List.revAppend (acc, rest))
+                end
+            | AtLeastOne {action, ...} =>
+                (case rest of
+                   Arg a :: rest =>
+                     let
+                       val (taken, rest) = takeWhile [] rest
+                     in
+                       ( SOME (fn () => action (a :: taken))
+                       , List.revAppend (acc, rest)
+                       )
+                     end
+                 | _ => raise Fail "arity")
     in
       loop [] toks
     end
@@ -89,9 +114,15 @@ struct
           case (short, arg) of
             (_, Argument.None _) => ""
           | (SOME _, Argument.One {metavar, ...}) => " <" ^ metavar ^ ">"
-          | (NONE, Argument.One {metavar, ...}) => "=<" ^ metavar ^ ">"
           | (SOME _, Argument.Optional {metavar, ...}) => " [<" ^ metavar ^ ">]"
+          | (SOME _, Argument.AtLeastOne {metavar, ...}) =>
+              " <" ^ metavar ^ ">..."
+          | (SOME _, Argument.Any {metavar, ...}) => " [<" ^ metavar ^ ">]..."
+          | (NONE, Argument.One {metavar, ...}) => "=<" ^ metavar ^ ">"
           | (NONE, Argument.Optional {metavar, ...}) => "[=<" ^ metavar ^ ">]"
+          | (NONE, Argument.AtLeastOne {metavar, ...}) =>
+              "=<" ^ metavar ^ ">..."
+          | (NONE, Argument.Any {metavar, ...}) => "=[<" ^ metavar ^ ">]..."
         val short = Option.getOpt (Option.map shortToString short, "  ")
       in
         short ^ ", " ^ "--" ^ long ^ metavar ^ "\t" ^ desc
@@ -99,7 +130,10 @@ struct
 
     val helpUsage = {short = SOME #"h", long = "help", desc = "Print help"}
 
-    datatype token = Flag of string | FlagArg of string * string | Arg of string
+    datatype token =
+      Flag of string
+    | FlagArg of string * string list
+    | Arg of string
 
     open Substring
     val rec tokenize =
@@ -110,8 +144,13 @@ struct
           let
             val (flag, arg) = splitl (fn c => c <> #"=") (full x)
           in
-            if isEmpty arg then Flag x :: tokenize xs
-            else FlagArg (string flag, string (triml 1 arg)) :: tokenize xs
+            if isEmpty arg then
+              Flag x :: tokenize xs
+            else
+              FlagArg
+                ( string flag
+                , (String.tokens (fn c => c = #",") o string o triml 1) arg
+                ) :: tokenize xs
           end
         else if String.isPrefix "-" x then
           (map (Flag o shortToString) o explode o triml 1 o full) x
@@ -120,25 +159,33 @@ struct
           Arg x :: tokenize xs
 
     fun tokToString (Flag fl) = fl
-      | tokToString (FlagArg (fl, arg)) = fl ^ "=" ^ arg
+      | tokToString (FlagArg (fl, args)) =
+          fl ^ "=" ^ String.concatWith "," args
       | tokToString (Arg v) = v
 
     fun search {usage = {short, long, desc}, arg} toks =
       let
         open Argument
+        fun takeWhile acc (Arg a :: rest) =
+              takeWhile (a :: acc) rest
+          | takeWhile acc xs = (rev acc, xs)
         fun loop acc =
           fn [] => (NONE, toks)
            | (Arg v :: rest) => loop (Arg v :: acc) rest
-           | (FlagArg (other, v) :: rest) =>
+           | (FlagArg (other, vs) :: rest) =>
             if "--" ^ long = other then
-              case arg of
-                None action => raise Fail "arity"
-              | One {action, ...} =>
+              case (arg, vs) of
+                (One {action, ...}, [v]) =>
                   (SOME (fn () => action v), List.revAppend (acc, rest))
-              | Optional {action, ...} =>
+              | (Optional {action, ...}, [v]) =>
                   (SOME (fn () => action (SOME v)), List.revAppend (acc, rest))
+              | (Any {action, ...}, vs) =>
+                  (SOME (fn () => action vs), List.revAppend (acc, rest))
+              | (AtLeastOne {action, ...}, vs) =>
+                  (SOME (fn () => action vs), List.revAppend (acc, rest))
+              | _ => raise Fail "arity"
             else
-              loop (FlagArg (other, v) :: acc) rest
+              loop (FlagArg (other, vs) :: acc) rest
            | (Flag other :: rest) =>
             case
               ( "--" ^ long = other
@@ -164,7 +211,26 @@ struct
                       | _ =>
                           ( SOME (fn () => action NONE)
                           , List.revAppend (acc, rest)
-                          )))
+                          ))
+                 | Any {action, ...} =>
+                     let
+                       val (taken, rest) = takeWhile [] rest
+                     in
+                       ( SOME (fn () => action taken)
+                       , List.revAppend (acc, rest)
+                       )
+                     end
+                 | AtLeastOne {action, ...} =>
+                     (case rest of
+                        Arg a :: rest =>
+                          let
+                            val (taken, rest) = takeWhile [] rest
+                          in
+                            ( SOME (fn () => action (a :: taken))
+                            , List.revAppend (acc, rest)
+                            )
+                          end
+                      | _ => raise Fail "arity"))
       in
         loop [] toks
       end
