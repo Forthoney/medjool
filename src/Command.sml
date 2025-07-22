@@ -26,23 +26,21 @@ struct
 
   fun parse toks =
     let
-      val allFlags = help :: flags
-      fun findMatch toks =
-        fn [] => NONE
-         | (f :: fs) =>
-            case Token.match (Flag.match f) (#arg f) toks of
-              SOME v => SOME v
-            | NONE => findMatch toks fs
-      fun loop (actions, seen) =
-        fn [] => (actions, seen)
-         | (toks as t :: ts) =>
-          case findMatch toks allFlags of
+      val flags = help :: flags
+      fun findMatch _ [] = NONE
+        | findMatch toks (f :: fs) =
+          case Token.match (Flag.match f) (#arg f) toks of
+            SOME v => SOME v
+          | NONE => findMatch toks fs
+      fun loop acc [] = acc
+        | loop (actions, seen) (toks as t :: ts) =
+          case findMatch toks flags of
             SOME (action, rest) => loop (action :: actions, seen) rest
           | NONE => loop (actions, t :: seen) ts
       val (actions, remaining) = loop ([], []) toks
     in
       case Token.matchArg (anonymous, rev remaining) of
-        (action, []) => map (fn f => f ()) (action :: actions)
+        (action, []) => action :: actions
       | (_, remaining :: _) => raise Fail ("unmatched " ^ Token.toString remaining)
     end
 

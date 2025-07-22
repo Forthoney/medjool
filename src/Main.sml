@@ -19,6 +19,6 @@ structure Medjool =
              {action = fn arg => print ("baz" ^ arg), metavar = "HELMET"}
          }
        ]
-     val anonymous = Argument.None (fn _ => ()))
+     val anonymous = Argument.One {action = fn _ => (), metavar = "TEMP"})
 
 val _ = Medjool.run (CommandLine.arguments ())

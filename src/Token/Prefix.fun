@@ -20,17 +20,17 @@ struct
 
   open Argument
   val matchArg =
-    fn (None action, args) => (action, args)
-     | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
+    fn (None action, args) => (action (), args)
+     | (One {action, ...}, Arg a :: rest) => (action a, rest)
      | (Optional {action, ...}, Arg a :: rest) =>
-      (fn () => action (SOME a), rest)
-     | (Optional {action, ...}, args) => (fn () => action NONE, args)
+      (action (SOME a), rest)
+     | (Optional {action, ...}, args) => (action NONE, args)
      | (Any {action, ...}, args) => let val (l, r) = splitOnArg args
-                                    in (fn () => action l, r)
+                                    in (action l, r)
                                     end
      | (AtLeastOne {action, ...}, Arg v :: rest) =>
       let val (l, r) = splitOnArg rest
-      in (fn () => action (v :: l), r)
+      in (action (v :: l), r)
       end
      | _ => raise Fail "arity"
 

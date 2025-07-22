@@ -42,17 +42,16 @@ struct
 
   open Argument
   val matchArg =
-    fn (None action, args) => (action, args)
-     | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
-     | (Optional {action, ...}, Arg a :: rest) =>
-      (fn () => action (SOME a), rest)
-     | (Optional {action, ...}, args) => (fn () => action NONE, args)
+    fn (None action, args) => (action (), args)
+     | (One {action, ...}, Arg a :: rest) => (action a, rest)
+     | (Optional {action, ...}, Arg a :: rest) => (action (SOME a), rest)
+     | (Optional {action, ...}, args) => (action NONE, args)
      | (Any {action, ...}, args) => let val (l, r) = splitOnArg args
-                                    in (fn () => action l, r)
+                                    in (action l, r)
                                     end
      | (AtLeastOne {action, ...}, Arg v :: rest) =>
       let val (l, r) = splitOnArg rest
-      in (fn () => action (v :: l), r)
+      in (action (v :: l), r)
       end
      | _ => raise Fail "arity"
 
@@ -63,10 +62,10 @@ struct
       Option.compose
         ( fn _ =>
             ( case (arg, vs) of
-                (One {action, ...}, [v]) => (fn () => action v)
-              | (Optional {action, ...}, [v]) => (fn () => action NONE)
-              | (Any {action, ...}, _) => (fn () => action vs)
-              | (AtLeastOne {action, ...}, _) => (fn () => action vs)
+                (One {action, ...}, [v]) => action v
+              | (Optional {action, ...}, [v]) => action NONE
+              | (Any {action, ...}, _) => action vs
+              | (AtLeastOne {action, ...}, _) => action vs
               | _ => raise Fail "arity"
             , rest
             )
@@ -76,18 +75,17 @@ struct
       Option.compose
         ( fn _ =>
             case (arg, rest) of
-              (None action, _) => (action, rest)
-            | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
-            | (Optional {action, ...}, Arg a :: rest) =>
-                (fn () => action (SOME a), rest)
-            | (Optional {action, ...}, args) => (fn () => action NONE, args)
+              (None action, _) => (action (), rest)
+            | (One {action, ...}, Arg a :: rest) => (action a, rest)
+            | (Optional {action, ...}, Arg a :: rest) => (action (SOME a), rest)
+            | (Optional {action, ...}, args) => (action NONE, args)
             | (Any {action, ...}, args) =>
                 let val (l, r) = splitOnArg args
-                in (fn () => action l, r)
+                in (action l, r)
                 end
             | (AtLeastOne {action, ...}, Arg v :: rest) =>
                 let val (l, r) = splitOnArg rest
-                in (fn () => action (v :: l), r)
+                in (action (v :: l), r)
                 end
             | _ => raise Fail "arity"
         , Option.filter pred
