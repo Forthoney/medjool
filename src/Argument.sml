@@ -1,9 +1,9 @@
-structure Argument:
+signature ARGUMENT =
 sig
   exception Arity
   exception Conversion of {expected: string, actual: string}
   exception Validation of {condition: string, actual: string}
-  datatype 'a t =
+  datatype 'a arg =
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
   | Optional of {metavar: string, action: string option -> 'a}
@@ -15,13 +15,15 @@ sig
   val asBool: string -> bool
   val satisfies: string -> (string -> bool) -> string -> string
   val includedIn: string list -> string -> string
-end =
+end
+
+structure Argument =
 struct
   exception Arity
   exception Conversion of {expected: string, actual: string}
   exception Validation of {condition: string, actual: string}
 
-  datatype 'a t =
+  datatype 'a arg =
     None of unit -> 'a
   | One of {metavar: string, action: string -> 'a}
   | Optional of {metavar: string, action: string option -> 'a}

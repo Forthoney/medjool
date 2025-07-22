@@ -1,50 +1,53 @@
-functor CommandFn(Opts: COMMAND_OPTS):
+functor CommandFn
+  (structure Token: TOKEN
+   structure Flag: FLAG_CONVENTION
+
+   type action
+   val desc: string
+   val flags: action Flag.flag list
+   val anonymous: action Argument.arg):
 sig
   exception Help
   val helpMsg: string
   (* Parse all arguments and return the results of actions. Raises and does NOT handle errors. *)
-  val parse: Opts.Flag.token list -> Opts.action list
+  val parse: Token.token list -> action list
   (* Parse as many arguments as possible and return the results of actions. Raises and does NOT handle errors.
      The nuance between parse and parsePartial is that parse considered unmatched arguments as errors *)
-  val parsePartial: Opts.Flag.token list
-                    -> Opts.action list * Opts.Flag.token list
   (* Parse all arguments and return the results of actiosn. Gracefully handles errors and exits *)
-  val run: string list -> Opts.action list
+  val run: string list -> action list
 end =
 struct
   exception Help
-  structure Flag = Opts.Flag
 
   val help = {usage = Flag.helpUsage, arg = Argument.None (fn () => raise Help)}
 
   val helpMsg = String.concatWith "\n"
-    (Opts.desc :: map (fn fl => "  " ^ Flag.toHelpMsg fl) (Opts.flags @ [help]))
-
-  fun parsePartial args =
-    let
-      fun loop acc =
-        fn (_, []) => (rev acc, [])
-         | ([], rest) => (rev acc, rest)
-         | (flag :: rest, args) =>
-          case Flag.search flag args of
-            (SOME action, args) => loop (action :: acc) (flag :: rest, args)
-          | (NONE, args) => loop acc (rest, args)
-      val (actions, remaining) = loop [] (help :: Opts.flags, args)
-    in
-      (List.map (fn action => action ()) actions, remaining)
-    end
+    (desc :: map (fn fl => "  " ^ Flag.toHelpMsg fl) (flags @ [help]))
 
   fun parse args =
-    case parsePartial args of
-      (actions, []) => actions
-    | (actions, arg :: _) => raise Fail ("unmatched " ^ Flag.tokToString arg)
+    let
+      fun search flag =
+        Token.search (Flag.match flag) (#arg flag)
+      fun loop acc =
+        fn (_, []) => (acc, [])
+         | ([], rest) => (acc, rest)
+         | (flag :: rest, args) =>
+          case search flag args of
+            SOME (action, args) => loop (action :: acc) (flag :: rest, args)
+          | NONE => loop acc (rest, args)
+      val (actions, remaining) = loop [] (help :: flags, args)
+    in
+      case Token.match (anonymous, remaining) of
+        (action, []) => map (fn f => f ()) (action :: actions)
+      | _ => raise Fail "unmatched"
+    end
 
   fun run args =
     let
       fun fail msg =
         (TextIO.output (TextIO.stdErr, msg); OS.Process.exit OS.Process.failure)
     in
-      parse (Flag.tokenize args)
+      parse (Token.tokenize args)
       handle
         Help => (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
       | Argument.Conversion {expected, actual} =>
