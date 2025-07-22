@@ -1,7 +1,7 @@
 val verbose = ref false
 structure Medjool =
   CommandFn
-     (structure Parser = GNU
+    (structure Parser = GNUParser
 
      type action = unit
      val desc = "demo command thingy"

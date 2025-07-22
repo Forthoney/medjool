@@ -1,9 +1,10 @@
 functor CommandFn
-   (structure Parser: PARSER
-
+  (structure Parser: PARSER
+   (* The return type of actions *)
    type action
    val desc: string
    val flags: action Parser.flag list
+   (* Arguments a command takes without flags preceding it. E.g. rm _FILE_  or cat _FILE_ *)
    val anonymous: action Argument.arg):
 sig
   exception Help
@@ -17,7 +18,8 @@ struct
   exception Help
   exception Unmatched of string
 
-  val help = {usage = Parser.helpUsage, arg = Argument.None (fn () => raise Help)}
+  val help =
+    {usage = Parser.helpUsage, arg = Argument.None (fn () => raise Help)}
 
   val helpMsg = String.concatWith "\n"
     (desc :: map (fn fl => "  " ^ Parser.toHelpMsg fl) (flags @ [help]))
@@ -50,7 +52,8 @@ struct
       parse (Parser.tokenize args)
       handle
         Help => (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
-      | Unmatched tok => fail ("Unmatched flag or argument: \"" ^ String.toString tok ^ "\"")
+      | Unmatched tok =>
+          fail ("Unmatched flag or argument: \"" ^ String.toString tok ^ "\"")
       | Argument.Conversion {expected, actual} =>
           fail
             ("Expected argument of type " ^ expected ^ ", but found argument \""
