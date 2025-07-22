@@ -8,8 +8,9 @@ struct
   open Substring
   val rec tokenize =
     fn [] => []
-     | ("--" :: xs) => map Arg xs
-     | (x :: xs) =>
+     | "--" :: xs => map Arg xs
+     | "-" :: xs => Arg "-" :: tokenize xs
+     | x :: xs =>
       if String.isPrefix "--" x then
         let
           val (flag, arg) = splitl (fn c => c <> #"=") (full x)
@@ -55,40 +56,40 @@ struct
       end
      | _ => raise Fail "arity"
 
-  fun matchFlag pred arg =
+  fun match pred arg =
     fn [] => NONE
-     | (Arg a :: rest) => NONE
-     | (FlagArg (other, vs) :: rest) =>
-      if pred other then
-        SOME
-          ( case (arg, vs) of
-              (One {action, ...}, [v]) => (fn () => action v)
-            | (Optional {action, ...}, [v]) => (fn () => action NONE)
-            | (Any {action, ...}, _) => (fn () => action vs)
-            | (AtLeastOne {action, ...}, _) => (fn () => action vs)
+     | Arg a :: rest => NONE
+     | FlagArg (other, vs) :: rest =>
+      Option.compose
+        ( fn _ =>
+            ( case (arg, vs) of
+                (One {action, ...}, [v]) => (fn () => action v)
+              | (Optional {action, ...}, [v]) => (fn () => action NONE)
+              | (Any {action, ...}, _) => (fn () => action vs)
+              | (AtLeastOne {action, ...}, _) => (fn () => action vs)
+              | _ => raise Fail "arity"
+            , rest
+            )
+        , Option.filter pred
+        ) other
+     | Flag other :: rest =>
+      Option.compose
+        ( fn _ =>
+            case (arg, rest) of
+              (None action, _) => (action, rest)
+            | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
+            | (Optional {action, ...}, Arg a :: rest) =>
+                (fn () => action (SOME a), rest)
+            | (Optional {action, ...}, args) => (fn () => action NONE, args)
+            | (Any {action, ...}, args) =>
+                let val (l, r) = splitOnArg args
+                in (fn () => action l, r)
+                end
+            | (AtLeastOne {action, ...}, Arg v :: rest) =>
+                let val (l, r) = splitOnArg rest
+                in (fn () => action (v :: l), r)
+                end
             | _ => raise Fail "arity"
-          , rest
-          )
-      else
-        NONE
-     | (Flag other :: rest) =>
-      if pred other then
-        SOME
-          (case (arg, rest) of
-             (None action, _) => (action, rest)
-           | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
-           | (Optional {action, ...}, Arg a :: rest) =>
-               (fn () => action (SOME a), rest)
-           | (Optional {action, ...}, args) => (fn () => action NONE, args)
-           | (Any {action, ...}, args) =>
-               let val (l, r) = splitOnArg args
-               in (fn () => action l, r)
-               end
-           | (AtLeastOne {action, ...}, Arg v :: rest) =>
-               let val (l, r) = splitOnArg rest
-               in (fn () => action (v :: l), r)
-               end
-           | _ => raise Fail "arity")
-      else
-        NONE
+        , Option.filter pred
+        ) other
 end

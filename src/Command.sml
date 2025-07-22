@@ -34,10 +34,10 @@ struct
             | NONE => findOpt f xs
 
       fun loop (actions, seen) [] = (actions, seen)
-        | loop (actions, seen) (t :: toks) =
+        | loop (actions, seen) (ts as t :: toks) =
             case
               findOpt
-                (fn fl => Token.matchFlag (Flag.match fl) (#arg fl) (t :: toks))
+                (fn fl => Token.match (Flag.match fl) (#arg fl) ts)
                 flags
             of
               SOME (action, rest) => loop (action :: actions, seen) rest

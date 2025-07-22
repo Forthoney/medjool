@@ -4,8 +4,8 @@ struct
 
   val rec tokenize =
     fn [] => []
-     | ("--" :: rest) => map Arg rest
-     | (x :: rest) =>
+     | "--" :: rest => map Arg rest
+     | x :: rest =>
       if String.isPrefix prefix x then Flag x :: tokenize rest
       else Arg x :: tokenize rest
 
@@ -34,9 +34,9 @@ struct
       end
      | _ => raise Fail "arity"
 
-  fun matchFlag pred arg =
+  fun match pred arg =
     fn [] => NONE
-     | (Arg a :: rest) => NONE
-     | (Flag other :: rest) =>
+     | Arg a :: rest => NONE
+     | Flag other :: rest =>
       if pred other then SOME (matchArg (arg, rest)) else NONE
 end
