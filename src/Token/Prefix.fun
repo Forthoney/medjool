@@ -19,7 +19,7 @@ struct
     | splitOnArg otherwise = ([], otherwise)
 
   open Argument
-  val match =
+  val matchArg =
     fn (None action, args) => (action, args)
      | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
      | (Optional {action, ...}, Arg a :: rest) =>
@@ -34,19 +34,9 @@ struct
       end
      | _ => raise Fail "arity"
 
-  fun search pred arg =
-    let
-      fun loop acc =
-        fn [] => NONE
-         | (Arg a :: rest) => loop (Arg a :: acc) rest
-         | (Flag other :: rest) =>
-          if pred other then
-            let val (action, rest) = match (arg, rest)
-            in SOME (action, List.revAppend (acc, rest))
-            end
-          else
-            loop (Flag other :: acc) rest
-    in
-      loop []
-    end
+  fun matchFlag pred arg =
+    fn [] => NONE
+     | (Arg a :: rest) => NONE
+     | (Flag other :: rest) =>
+      if pred other then SOME (matchArg (arg, rest)) else NONE
 end

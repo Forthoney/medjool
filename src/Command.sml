@@ -1,6 +1,6 @@
 functor CommandFn
   (structure Token: TOKEN
-   structure Flag: FLAG_CONVENTION
+   structure Flag: FLAG
 
    type action
    val desc: string
@@ -24,20 +24,27 @@ struct
   val helpMsg = String.concatWith "\n"
     (desc :: map (fn fl => "  " ^ Flag.toHelpMsg fl) (flags @ [help]))
 
-  fun parse args =
+  fun parse toks =
     let
-      fun search flag =
-        Token.search (Flag.match flag) (#arg flag)
-      fun loop acc =
-        fn (_, []) => (acc, [])
-         | ([], rest) => (acc, rest)
-         | (flag :: rest, args) =>
-          case search flag args of
-            SOME (action, args) => loop (action :: acc) (flag :: rest, args)
-          | NONE => loop acc (rest, args)
-      val (actions, remaining) = loop [] (help :: flags, args)
+      val flags = help :: flags
+      fun findOpt f [] = NONE
+        | findOpt f (x :: xs) =
+            case f x of
+              SOME v => SOME v
+            | NONE => findOpt f xs
+
+      fun loop (actions, seen) [] = (actions, seen)
+        | loop (actions, seen) (t :: toks) =
+            case
+              findOpt
+                (fn fl => Token.matchFlag (Flag.match fl) (#arg fl) (t :: toks))
+                flags
+            of
+              SOME (action, rest) => loop (action :: actions, seen) rest
+            | NONE => loop (actions, t :: seen) toks
+      val (actions, remaining) = loop ([], []) toks
     in
-      case Token.match (anonymous, remaining) of
+      case Token.matchArg (anonymous, remaining) of
         (action, []) => map (fn f => f ()) (action :: actions)
       | _ => raise Fail "unmatched"
     end

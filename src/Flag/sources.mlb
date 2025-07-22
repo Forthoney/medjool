@@ -1,0 +1,9 @@
+local
+	$(SML_LIB)/basis/basis.mlb
+in
+	../Token/sources.mlb
+	Flag.sig
+	GNU.sml
+	Prefix.fun
+end
+

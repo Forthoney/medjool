@@ -2,8 +2,6 @@ local
 	$(SML_LIB)/basis/basis.mlb
 in
 	Argument.sml
-	Token/sources.mlb
-	Flag.sml
-	Opts.sig
+	Flag/sources.mlb
 	Command.sml
 end

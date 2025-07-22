@@ -40,7 +40,7 @@ struct
     | splitOnArg otherwise = ([], otherwise)
 
   open Argument
-  val match =
+  val matchArg =
     fn (None action, args) => (action, args)
      | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
      | (Optional {action, ...}, Arg a :: rest) =>
@@ -55,45 +55,40 @@ struct
       end
      | _ => raise Fail "arity"
 
-  fun search pred arg =
-    let
-      fun loop acc =
-        fn [] => NONE
-         | (Arg a :: rest) => loop (Arg a :: acc) rest
-         | (FlagArg (other, vs) :: rest) =>
-          if pred other then
-            SOME
-              ( case (arg, vs) of
-                  (One {action, ...}, [v]) => (fn () => action v)
-                | (Optional {action, ...}, [v]) => (fn () => action NONE)
-                | (Any {action, ...}, _) => (fn () => action vs)
-                | (AtLeastOne {action, ...}, _) => (fn () => action vs)
-                | _ => raise Fail "arity"
-              , List.revAppend (acc, rest)
-              )
-          else
-            loop (FlagArg (other, vs) :: acc) rest
-         | (Flag other :: rest) =>
-          if pred other then
-            SOME
-              (case (arg, rest) of
-                 (None action, _) => (action, List.revAppend (acc, rest))
-               | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
-               | (Optional {action, ...}, Arg a :: rest) =>
-                   (fn () => action (SOME a), rest)
-               | (Optional {action, ...}, args) => (fn () => action NONE, args)
-               | (Any {action, ...}, args) =>
-                   let val (l, r) = splitOnArg args
-                   in (fn () => action l, r)
-                   end
-               | (AtLeastOne {action, ...}, Arg v :: rest) =>
-                   let val (l, r) = splitOnArg rest
-                   in (fn () => action (v :: l), r)
-                   end
-               | _ => raise Fail "arity")
-          else
-            loop (Flag other :: acc) rest
-    in
-      loop []
-    end
+  fun matchFlag pred arg =
+    fn [] => NONE
+     | (Arg a :: rest) => NONE
+     | (FlagArg (other, vs) :: rest) =>
+      if pred other then
+        SOME
+          ( case (arg, vs) of
+              (One {action, ...}, [v]) => (fn () => action v)
+            | (Optional {action, ...}, [v]) => (fn () => action NONE)
+            | (Any {action, ...}, _) => (fn () => action vs)
+            | (AtLeastOne {action, ...}, _) => (fn () => action vs)
+            | _ => raise Fail "arity"
+          , rest
+          )
+      else
+        NONE
+     | (Flag other :: rest) =>
+      if pred other then
+        SOME
+          (case (arg, rest) of
+             (None action, _) => (action, rest)
+           | (One {action, ...}, Arg a :: rest) => (fn () => action a, rest)
+           | (Optional {action, ...}, Arg a :: rest) =>
+               (fn () => action (SOME a), rest)
+           | (Optional {action, ...}, args) => (fn () => action NONE, args)
+           | (Any {action, ...}, args) =>
+               let val (l, r) = splitOnArg args
+               in (fn () => action l, r)
+               end
+           | (AtLeastOne {action, ...}, Arg v :: rest) =>
+               let val (l, r) = splitOnArg rest
+               in (fn () => action (v :: l), r)
+               end
+           | _ => raise Fail "arity")
+      else
+        NONE
 end
