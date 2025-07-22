@@ -22,8 +22,7 @@ struct
   val matchArg =
     fn (None action, args) => (action (), args)
      | (One {action, ...}, Arg a :: rest) => (action a, rest)
-     | (Optional {action, ...}, Arg a :: rest) =>
-      (action (SOME a), rest)
+     | (Optional {action, ...}, Arg a :: rest) => (action (SOME a), rest)
      | (Optional {action, ...}, args) => (action NONE, args)
      | (Any {action, ...}, args) => let val (l, r) = splitOnArg args
                                     in (action l, r)

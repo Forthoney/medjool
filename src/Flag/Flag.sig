@@ -8,5 +8,6 @@ sig
   (* The usage metadata for the help flag *)
   val helpUsage: usage
 
+  (* Match the given flag against a string *)
   val match: 'a flag -> string -> bool
 end

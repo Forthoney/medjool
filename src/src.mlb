@@ -3,5 +3,5 @@ local
 in
 	Argument.sml
 	Flag/sources.mlb
-	Command.sml
+	Command.fun
 end
