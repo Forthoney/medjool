@@ -26,9 +26,7 @@ struct
 
   val helpUsage = {short = SOME #"h", long = "help", desc = "Print help"}
 
-  fun match {usage = {short, long, desc}, arg} =
-    (fn other =>
-       "--" ^ long = other
-       orelse
-       Option.getOpt (Option.map (fn s => shortToString s = other) short, false))
+  fun match {usage = {short, long, desc}, arg} other =
+    "--" ^ long = other orelse
+    Option.getOpt (Option.map (fn s => shortToString s = other) short, false)
 end
