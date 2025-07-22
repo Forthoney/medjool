@@ -1,4 +1,4 @@
-signature FLAG =
+signature PARSER =
 sig
   (* information on using the flag. Should include information such as the flag's name and the help message *)
   type usage
@@ -8,6 +8,11 @@ sig
   (* The usage metadata for the help flag *)
   val helpUsage: usage
 
-  (* Match the given flag against a string *)
-  val match: 'a flag -> string -> bool
+  type token
+  val tokenize: string list -> token list
+  val toString: token -> string
+  val matchArg: 'a Argument.arg * token list -> ('a * token list)
+  val match: 'a flag
+             -> token list
+             -> ('a * token list) option
 end

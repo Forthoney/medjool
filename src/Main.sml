@@ -1,8 +1,7 @@
 val verbose = ref false
 structure Medjool =
   CommandFn
-    (structure Token = GNUToken
-     structure Flag = GNUFlag
+     (structure Parser = GNU
 
      type action = unit
      val desc = "demo command thingy"

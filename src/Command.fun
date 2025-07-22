@@ -1,16 +1,15 @@
 functor CommandFn
-  (structure Token: TOKEN
-   structure Flag: FLAG
+   (structure Parser: PARSER
 
    type action
    val desc: string
-   val flags: action Flag.flag list
+   val flags: action Parser.flag list
    val anonymous: action Argument.arg):
 sig
   exception Help
   val helpMsg: string
   (* Parse all arguments and return the results of actions. Raises and does NOT handle errors. *)
-  val parse: Token.token list -> action list
+  val parse: Parser.token list -> action list
   (* Parse all arguments and return the results of actions. Gracefully handles errors and exits *)
   val run: string list -> action list
 end =
@@ -18,17 +17,17 @@ struct
   exception Help
   exception Unmatched of string
 
-  val help = {usage = Flag.helpUsage, arg = Argument.None (fn () => raise Help)}
+  val help = {usage = Parser.helpUsage, arg = Argument.None (fn () => raise Help)}
 
   val helpMsg = String.concatWith "\n"
-    (desc :: map (fn fl => "  " ^ Flag.toHelpMsg fl) (flags @ [help]))
+    (desc :: map (fn fl => "  " ^ Parser.toHelpMsg fl) (flags @ [help]))
 
   fun parse toks =
     let
       val flags = help :: flags
       fun findMatch _ [] = NONE
         | findMatch toks (f :: fs) =
-            case Token.match (Flag.match f) (#arg f) toks of
+            case Parser.match f toks of
               SOME v => SOME v
             | NONE => findMatch toks fs
       fun loop acc [] = acc
@@ -38,9 +37,9 @@ struct
             | NONE => loop (actions, t :: seen) ts
       val (actions, remaining) = loop ([], []) toks
     in
-      case Token.matchArg (anonymous, rev remaining) of
+      case Parser.matchArg (anonymous, rev remaining) of
         (action, []) => action :: actions
-      | (_, remaining :: _) => raise Unmatched (Token.toString remaining)
+      | (_, remaining :: _) => raise Unmatched (Parser.toString remaining)
     end
 
   fun run args =
@@ -48,7 +47,7 @@ struct
       fun fail msg =
         (TextIO.output (TextIO.stdErr, msg); OS.Process.exit OS.Process.failure)
     in
-      parse (Token.tokenize args)
+      parse (Parser.tokenize args)
       handle
         Help => (print (helpMsg ^ "\n"); OS.Process.exit OS.Process.success)
       | Unmatched tok => fail ("Unmatched flag or argument: \"" ^ String.toString tok ^ "\"")

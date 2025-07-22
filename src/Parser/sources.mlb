@@ -2,7 +2,8 @@ local
 	$(SML_LIB)/basis/basis.mlb
 in
 	../Argument.sml
-	Token.sig
+	Parser.sig
 	GNU.sml
 	Prefix.fun
 end
+

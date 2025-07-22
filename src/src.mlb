@@ -2,6 +2,6 @@ local
 	$(SML_LIB)/basis/basis.mlb
 in
 	Argument.sml
-	Flag/sources.mlb
+	Parser/sources.mlb
 	Command.fun
 end

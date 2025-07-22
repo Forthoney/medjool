@@ -1,5 +1,24 @@
-functor Token_PrefixFn (val prefix: string): TOKEN =
+functor Parser_PrefixFn (val prefix: string): PARSER =
 struct
+  type usage = {name: string, desc: string}
+  type 'a flag = {usage: usage, arg: 'a Argument.arg}
+
+  fun toHelpMsg {usage = {name, desc}, arg} =
+    let
+      open Argument
+      val metavar =
+        case arg of
+          None _ => ""
+        | One {metavar, ...} => " <" ^ metavar ^ ">"
+        | Optional {metavar, ...} => " [<" ^ metavar ^ ">]"
+        | AtLeastOne {metavar, ...} => " <" ^ metavar ^ ">..."
+        | Any {metavar, ...} => " [<" ^ metavar ^ ">]..."
+    in
+      prefix ^ name ^ metavar ^ "\t" ^ desc
+    end
+
+  val helpUsage = {name = "help", desc = "Print help"}
+
   datatype token = Flag of string | Arg of string
 
   val rec tokenize =
@@ -33,9 +52,9 @@ struct
       end
      | _ => raise Fail "arity"
 
-  fun match pred arg =
+  fun match {usage = {name, desc}, arg} =
     fn [] => NONE
      | Arg a :: rest => NONE
      | Flag other :: rest =>
-      if pred other then SOME (matchArg (arg, rest)) else NONE
+      if prefix ^ name = other then SOME (matchArg (arg, rest)) else NONE
 end
