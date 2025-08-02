@@ -21,8 +21,33 @@ struct
   val help =
     {usage = Parser.helpUsage, arg = Argument.None (fn () => raise Help)}
 
-  val helpMsg = String.concatWith "\n"
-    (desc :: map (fn fl => "  " ^ Parser.toHelpMsg fl) (flags @ [help]))
+  val helpMsg =
+    let
+      val usage =
+        let
+          val words =
+            case flags of
+              [] => [CommandLine.name ()]
+            | _ => ["[FLAG]...", CommandLine.name ()]
+          val words =
+            let
+              open Argument
+            in
+              case anonymous of
+                None _ => words
+              | One {metavar, ...} => metavar :: words
+              | Optional {metavar, ...} => ("[" ^ metavar ^ "]") :: words
+              | AtLeastOne {metavar, ...} => (metavar ^ "...") :: words
+              | Any {metavar, ...} => ("[" ^ metavar ^ "]...") :: words
+            end
+        in
+          String.concatWith " " ("Usage:" :: rev words)
+        end
+    in
+      String.concatWith "\n"
+        (usage :: desc
+         :: map (fn fl => "  " ^ Parser.toHelpMsg fl) (flags @ [help]))
+    end
 
   fun parse toks =
     let
