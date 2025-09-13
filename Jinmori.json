@@ -1,8 +1,7 @@
 {
-    "package" : {
-        "name" : "medjool",
-        "version" : "0.1.0"
-      },
-    "dependencies" : [
-      ]
-  }
+  "package": {
+    "name": "medjool",
+    "version": "0.2.0"
+  },
+  "dependencies": []
+}
