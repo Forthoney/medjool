@@ -1,7 +1,11 @@
 {
   "package": {
     "name": "medjool",
-    "version": "0.2.0"
+    "version": "0.2.1"
   },
+  "supportedCompilers": [
+    "mlton",
+    "mpl"
+  ],
   "dependencies": []
 }
